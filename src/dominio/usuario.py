@@ -7,13 +7,27 @@ class Usuario:
     def __init__(self, nombre_usuario: str, password_hash: str, id_empleado: int, rol: str = "empleado", id = None):
         if type(id_empleado) is not int or id_empleado <= 0:
             raise ValueError("El ID del empleado debe ser positivo.")
-        if rol not in self.ROLES:
-            raise ValueError(f"El rol debe ser uno de estos: {', '.join(self.ROLES)}.")
         self.id = id
         self.id_empleado = id_empleado
-        self.nombre_usuario = self.normalizar_usuario(nombre_usuario)
+        self.nombre_usuario = nombre_usuario
         self.password_hash = password_hash
         self.rol = rol
+
+    @property
+    def nombre_usuario(self):
+        return self._nombre_usuario
+
+    @nombre_usuario.setter
+    def nombre_usuario(self, valor):
+        self._nombre_usuario = self.normalizar_usuario(valor)
+
+    @property
+    def rol(self):
+        return self._rol
+
+    @rol.setter
+    def rol(self, valor):
+        self._rol = self.validar_rol(valor)
 
     @classmethod
     def normalizar_usuario(cls, nombre):
@@ -32,10 +46,12 @@ class Usuario:
             raise TypeError("La contraseña debe ser texto.")
         if len(clave) < cls.MIN_CLAVE:
             raise ValueError(f"Use al menos {cls.MIN_CLAVE} caracteres.")
-        return clave  # Sin strip, lower ni truncado.
+        return clave
 
     @classmethod
     def validar_rol(cls, rol):
+        if not isinstance(rol, str):
+            raise TypeError("El rol debe ser texto.")
         rol = rol.strip().lower()
         if rol not in cls.ROLES:
             raise ValueError(f"El rol debe ser uno de estos: {', '.join(cls.ROLES)}.")

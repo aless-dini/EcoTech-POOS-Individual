@@ -2,7 +2,9 @@ from dominio.proyecto import Proyecto
 from persistencia.proyecto_dao import ProyectoDAO
 from persistencia.empleado_dao import EmpleadoDAO
 from persistencia.registroTiempo_dao import RegistroTiempoDAO
-from menus.menuEmpleado import pedir_texto, pedir_entero, pedir_fecha, mostrar_lista
+from entradas import pedir_dato, pedir_opcional
+from menus.menuEmpleado import pedir_entero, mostrar_lista
+from servicios.registros import esta_asignado, validar_inicio_proyecto
 
 def pedir_proyecto_existente(mensaje):
     idProyecto = pedir_entero(mensaje)
@@ -12,9 +14,9 @@ def pedir_proyecto_existente(mensaje):
     return proyecto
 
 def crear_proyecto():
-    nombre = pedir_texto("\nNombre del proyecto: ")
-    descripcion = pedir_texto("Descripción: ")
-    fechaInicio = pedir_fecha("Fecha de inicio (DD-MM-AAAA): ")
+    nombre = pedir_dato("\nNombre del proyecto: ", Proyecto.validar_nombre)
+    descripcion = pedir_dato("Descripción: ", Proyecto.validar_descripcion)
+    fechaInicio = pedir_dato("Fecha de inicio (DD-MM-AAAA): ", Proyecto.validar_fecha_inicio)
 
     proyecto = Proyecto(nombre, descripcion, fechaInicio)
     if ProyectoDAO.insertar(proyecto) is not None:
@@ -31,16 +33,19 @@ def editar_proyecto():
     print(f"Id: {proyecto.id} | Nombre: {proyecto.nombre} | Inicio: {proyecto.fechaInicio}")
     print(f"Descripción: {proyecto.descripcion}")
 
-    nombre = input(f"\nNuevo nombre (Enter para mantener '{proyecto.nombre}'): ").strip()
+    nombre = pedir_opcional(f"\nNuevo nombre (Enter para mantener '{proyecto.nombre}'): ", Proyecto.validar_nombre)
     if nombre:
         proyecto.nombre = nombre
 
-    descripcion = input("Nueva descripción (Enter para mantener la actual): ").strip()
+    descripcion = pedir_opcional("Nueva descripción (Enter para mantener la actual): ", Proyecto.validar_descripcion)
     if descripcion:
         proyecto.descripcion = descripcion
 
     if input("¿Cambiar la fecha de inicio? (s/n): ").strip().lower() == "s":
-        proyecto.fechaInicio = pedir_fecha("Nueva fecha de inicio (DD-MM-AAAA): ")
+        proyecto.fechaInicio = pedir_dato(
+            "Nueva fecha de inicio (DD-MM-AAAA): ",
+            lambda valor: validar_inicio_proyecto(proyecto.id, Proyecto.validar_fecha_inicio(valor)),
+        )
 
     if ProyectoDAO.actualizar(proyecto):
         print("\nProyecto actualizado correctamente")
@@ -93,7 +98,7 @@ def asignar_empleado_proyecto():
     if empleado is None:
         print("\nNo existe un empleado con ese id")
         return
-    if any(e.id == empleado.id for e in EmpleadoDAO.listar_por_proyecto(proyecto.id)):
+    if esta_asignado(empleado.id, proyecto.id):
         print("\nEl empleado ya está asignado a este proyecto")
         return
 

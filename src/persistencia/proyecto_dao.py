@@ -53,4 +53,4 @@ class ProyectoDAO(BaseDAO):
             "WHERE ep.id_empleado = ? ORDER BY p.id"
         )
         filas = cls._consultar(sql, (id_empleado,), "listar los proyectos del empleado")
-        return [cls._convertir(fila) for fila in filas]
+        return cls._convertir_filas(filas)

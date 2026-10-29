@@ -3,6 +3,7 @@ import sqlite3
 import pymysql
 from pymysql.constants import CLIENT
 from dotenv import load_dotenv
+from persistencia.errores import ErrorBaseDatos
 
 load_dotenv()
 
@@ -18,9 +19,12 @@ def abrir_conexion():
         return conexion
 
     if motor == "mysql":
+        puerto = os.getenv("DB_PORT", "3306")
+        if not puerto.isdecimal():
+            raise ErrorBaseDatos("DB_PORT del archivo .env debe ser un número.")
         return pymysql.connect(
             host=os.getenv("DB_HOST", "localhost"),
-            port=int(os.getenv("DB_PORT", "3306")),
+            port=int(puerto),
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASSWORD"),
             database=os.getenv("DB_NAME"),
@@ -29,7 +33,7 @@ def abrir_conexion():
             sql_mode="STRICT_ALL_TABLES",
         )
     
-    raise ValueError(f"Motor no soportado: {motor}")
+    raise ErrorBaseDatos(f"DB_ENGINE del archivo .env debe ser 'sqlite' o 'mysql', no '{motor}'.")
 
 def marcador_sql():
     if obtener_motor() == "sqlite":

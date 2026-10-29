@@ -3,11 +3,10 @@ from getpass import getpass
 from dominio.usuario import Usuario
 from entradas import pedir_dato
 from persistencia.usuario_dao import UsuarioDAO
-from servicios.autenticacion import registrar_usuario, autenticar, cambiar_clave
+from servicios.autenticacion import registrar_usuario, autenticar, cambiar_clave, tiene_clave
 from menus.menuEmpleado import a_entero_positivo
 
 def pedir_contraseña(mensaje):
-    # getpass oculta lo escrito, pero no funciona en todas las consolas.
     if sys.stdin.isatty():
         return getpass(mensaje)
     return input(mensaje)
@@ -48,6 +47,8 @@ def solicitar_login():
         print("\nUsuario o contraseña incorrectos.")
     else:
         print(f"\nSesión iniciada correctamente. Bienvenido/a, {usuario['nombre_usuario']}")
+        if usuario["sin_clave"]:
+            print("Su cuenta no tiene contraseña. Cámbiela desde el menú de usuarios.")
     return usuario
 
 def mostrar_perfil(usuario_actual):
@@ -59,7 +60,9 @@ def mostrar_perfil(usuario_actual):
     print(f"Rol: {usuario_actual['rol']}")
 
 def cambiar_contraseña(usuario_actual):
-    actual = pedir_contraseña("\nContraseña actual: ")
+    actual = ""
+    if tiene_clave(usuario_actual["id"]):
+        actual = pedir_contraseña("\nContraseña actual: ")
     nueva = pedir_dato(f"Nueva contraseña (mínimo {Usuario.MIN_CLAVE} caracteres): ",
                        Usuario.validar_clave, pedir_contraseña)
     if nueva != pedir_contraseña("Repita la nueva contraseña: "):

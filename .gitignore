@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# EcoTech: base de datos local e informes generados
+*.db
+informe_*.txt

@@ -1,8 +1,9 @@
 from dominio.departamento import Departamento
 from persistencia.departamento_dao import DepartamentoDAO
 from persistencia.empleado_dao import EmpleadoDAO
+from entradas import pedir_dato, pedir_opcional
 from menus.menuEmpleado import (
-    pedir_texto, pedir_entero, mostrar_lista, a_entero_positivo, quitar_gerencias,
+    pedir_entero, mostrar_lista, a_entero_positivo, quitar_gerencias,
 )
 
 def pedir_departamento_existente(mensaje):
@@ -11,6 +12,13 @@ def pedir_departamento_existente(mensaje):
     if departamento is None:
         print("\nNo existe un departamento con ese id")
     return departamento
+
+def validar_nombre_libre(nombre, id_actual=None):
+    nombre = Departamento.validar_nombre(nombre)
+    existente = DepartamentoDAO.buscar_por_nombre(nombre)
+    if existente is not None and existente.id != id_actual:
+        raise ValueError(f"Ya existe el departamento '{nombre}'.")
+    return nombre
 
 def pedir_gerente(mensaje):
     while True:
@@ -27,7 +35,7 @@ def pedir_gerente(mensaje):
         return id_gerente
 
 def crear_departamento():
-    nombre = pedir_texto("\nNombre del departamento: ")
+    nombre = pedir_dato("\nNombre del departamento: ", validar_nombre_libre)
     id_gerente = pedir_gerente("Id del empleado gerente (Enter para dejarlo sin gerente): ")
 
     departamento = Departamento(nombre, id_gerente)
@@ -123,7 +131,8 @@ def editar_departamento():
     print("\nDatos actuales:")
     print(f"Id: {departamento.id} | Nombre: {departamento.nombre} | Gerente: {gerente}")
 
-    nombre = input(f"\nNuevo nombre (Enter para mantener '{departamento.nombre}'): ").strip()
+    nombre = pedir_opcional(f"\nNuevo nombre (Enter para mantener '{departamento.nombre}'): ",
+                            lambda valor: validar_nombre_libre(valor, departamento.id))
     if nombre:
         departamento.nombre = nombre
 

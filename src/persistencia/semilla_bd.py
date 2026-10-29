@@ -5,11 +5,10 @@ from dominio.usuario import Usuario
 from persistencia.crear_bd import crear_tablas
 from persistencia.departamento_dao import DepartamentoDAO
 from persistencia.empleado_dao import EmpleadoDAO
+from persistencia.errores import ErrorBaseDatos
 from persistencia.usuario_dao import UsuarioDAO
 from servicios.autenticacion import registrar_usuario
 
-# Datos ficticios. El nombre identifica al departamento y el correo al empleado,
-# así la semilla puede ejecutarse varias veces sin duplicar registros.
 DEPARTAMENTOS = [
     "Recursos Humanos",
     "Finanzas",
@@ -18,8 +17,6 @@ DEPARTAMENTOS = [
     "Marketing",
 ]
 
-# (nombre, direccion, telefono, correo, salario, inicioContrato, departamento)
-# El primer empleado de cada departamento queda como gerente.
 EMPLEADOS = [
     ("Ana Torres", "Av Providencia 1234", 912345601, "ana.torres@ecotech.example", 1450000, "10-01-2022", "Recursos Humanos"),
     ("Bruno Díaz", "Los Olmos 456", 912345602, "bruno.diaz@ecotech.example", 950000, "03-05-2023", "Recursos Humanos"),
@@ -43,7 +40,6 @@ EMPLEADOS = [
     ("Ulises Cárdenas", "Av Pajaritos 3900", 912345620, "ulises.cardenas@ecotech.example", 860000, "04-03-2025", "Marketing"),
 ]
 
-# Empleado y cuenta inicial para poder iniciar sesión la primera vez.
 ADMIN_EMPLEADO = ("Administrador EcoTech", "Av Providencia 1000", 912345600, "admin@ecotech.example", 1500000, "01-01-2020")
 ADMIN_USUARIO = "admin"
 
@@ -99,22 +95,17 @@ def asignar_gerentes(ids_departamentos):
 
 
 def cargar_cuenta_admin():
-    # Deja lista la cuenta admin. Si ya existe no la toca, así se conservan
-    # sus IDs y su hash aunque el programa se inicie muchas veces.
     if UsuarioDAO.buscar_por_nombre(ADMIN_USUARIO) is not None:
         return True
 
-    # La contraseña se lee del .env para que no quede escrita en el código.
     clave = os.getenv("ADMIN_PASSWORD")
-    if not clave:
-        print(f"No existe la cuenta '{ADMIN_USUARIO}' y falta ADMIN_PASSWORD en el archivo .env.")
-        print("Agréguela al .env y vuelva a iniciar el programa.")
-        return False
-    try:
-        Usuario.validar_clave(clave)
-    except (TypeError, ValueError) as error:
-        print(f"ADMIN_PASSWORD del archivo .env no es válida: {error}")
-        return False
+    sin_clave = not clave
+    if not sin_clave:
+        try:
+            Usuario.validar_clave(clave)
+        except (TypeError, ValueError) as error:
+            print(f"ADMIN_PASSWORD del archivo .env no es válida: {error}")
+            return False
 
     correo = ADMIN_EMPLEADO[3]
     empleado = EmpleadoDAO.buscar_por_correo(correo)
@@ -126,11 +117,13 @@ def cargar_cuenta_admin():
         print(f"Empleado creado: {correo}")
 
     try:
-        usuario_id = registrar_usuario(empleado.id, ADMIN_USUARIO, clave, "administrador")
+        usuario_id = registrar_usuario(empleado.id, ADMIN_USUARIO, clave, "administrador", sin_clave)
     except (TypeError, ValueError) as error:
         print(f"No fue posible crear la cuenta admin: {error}")
         return False
     print(f"Cuenta '{ADMIN_USUARIO}' creada con id {usuario_id}")
+    if sin_clave:
+        print("La cuenta no tiene contraseña: presione Enter al pedirla y cámbiela después.")
     return True
 
 
@@ -148,4 +141,7 @@ def cargar_semilla():
 
 
 if __name__ == "__main__":
-    cargar_semilla()
+    try:
+        cargar_semilla()
+    except ErrorBaseDatos as error:
+        print(error)

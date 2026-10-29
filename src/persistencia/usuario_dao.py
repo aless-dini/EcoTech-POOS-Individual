@@ -34,24 +34,6 @@ class UsuarioDAO(BaseDAO):
         return cls._ejecutar(sql, parametros, "actualizar el usuario") > 0
 
     @classmethod
-    def eliminar(cls, id_usuario):
-        sql = "DELETE FROM usuario WHERE id = ?"
-        return cls._ejecutar(sql, (id_usuario,), "eliminar el usuario") > 0
-
-    @classmethod
-    def listar_todos(cls):
-        sql = f"SELECT {cls.COLUMNAS} FROM usuario ORDER BY id"
-        return [cls._convertir(fila) for fila in cls._consultar(sql, (), "listar los usuarios")]
-
-    @classmethod
-    def buscar_por_id(cls, id_usuario):
-        sql = f"SELECT {cls.COLUMNAS} FROM usuario WHERE id = ?"
-        filas = cls._consultar(sql, (id_usuario,), "buscar el usuario")
-        if not filas:
-            return None
-        return cls._convertir(filas[0])
-
-    @classmethod
     def buscar_por_nombre(cls, nombre_usuario):
         usuarios = cls._listar_donde("nombre_usuario = ?", (nombre_usuario,), "buscar el usuario")
         if not usuarios:

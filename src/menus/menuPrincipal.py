@@ -22,16 +22,14 @@ from menus.menuUsuario import (
     solicitar_registro, cambiar_contraseña, editar_usuario, eliminar_usuario,
     listar_usuarios, buscar_usuario_por_id, mostrar_perfil,
 )
+from persistencia.errores import ErrorBaseDatos
 from servicios.autenticacion import es_administrador
 
-# Quién puede ver cada opción del menú.
 ADMIN = "administrador"
 EMPLEADO = "empleado"
 TODOS = "todos"
 
 def crear_submenus(usuario_actual):
-    # Cada opción es (texto, función, quién puede usarla). Las funciones que
-    # necesitan saber quién inició sesión reciben usuario_actual con lambda.
     return {
         "1": ("Empleados", [
             ("Registrar empleado", registrar_empleado, ADMIN),
@@ -99,7 +97,6 @@ def menu(usuario_actual, submenus):
     print("8. Salir")
 
 def ejecutar_submenu(usuario_actual, titulo, opciones):
-    # Solo se muestran (y solo se pueden elegir) las opciones permitidas para el rol.
     permitidas = [(texto, accion) for texto, accion, quien in opciones if puede_usar(usuario_actual, quien)]
     volver = str(len(permitidas) + 1)
 
@@ -114,12 +111,14 @@ def ejecutar_submenu(usuario_actual, titulo, opciones):
             return
         if opcion.isdigit() and 1 <= int(opcion) <= len(permitidas):
             _, accion = permitidas[int(opcion) - 1]
-            accion()
+            try:
+                accion()
+            except ErrorBaseDatos as error:
+                print(f"\n{error}")
         else:
             print("\nSeleccione una opción válida")
 
 def menu_principal(usuario_actual):
-    # Devuelve "cerrar_sesion" o "salir" para que main.py decida qué hacer.
     if usuario_actual is None:
         print("\nDebe iniciar sesión.")
         return "cerrar_sesion"

@@ -90,7 +90,7 @@ class EmpleadoDAO(BaseDAO):
             "WHERE ep.id_proyecto = ? ORDER BY e.nombre"
         )
         filas = cls._consultar(sql, (id_proyecto,), "listar los empleados del proyecto")
-        return [cls._convertir(fila) for fila in filas]
+        return cls._convertir_filas(filas)
 
     @classmethod
     def buscar_por_correo(cls, correo):

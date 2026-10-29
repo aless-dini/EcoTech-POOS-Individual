@@ -2,12 +2,13 @@ from dominio.registroTiempo import RegistroTiempo
 from persistencia.registroTiempo_dao import RegistroTiempoDAO
 from persistencia.empleado_dao import EmpleadoDAO
 from persistencia.proyecto_dao import ProyectoDAO
-from menus.menuEmpleado import pedir_entero, pedir_fecha
+from entradas import pedir_dato
+from menus.menuEmpleado import pedir_entero
+from persistencia.errores import registro as registro_errores
+from servicios import registros
 from servicios.autenticacion import es_administrador
 
 def pedir_empleado_segun_rol(usuario_actual):
-    # El administrador elige al empleado. Un empleado común solo puede
-    # trabajar con sus propias horas, por eso se usa el id de su sesión.
     if es_administrador(usuario_actual):
         idEmpleado = pedir_entero("\nIngrese el id del empleado: ")
     else:
@@ -17,18 +18,11 @@ def pedir_empleado_segun_rol(usuario_actual):
         print("\nNo existe un empleado con ese id")
     return empleado
 
+def pedir_fecha(mensaje):
+    return pedir_dato(mensaje, RegistroTiempo.validar_fecha_registro)
+
 def pedir_horas(mensaje):
-    while True:
-        valor = input(mensaje).strip().replace(",", ".")
-        try:
-            horas = float(valor)
-        except ValueError:
-            print("Debe ingresar un número (por ejemplo 8 o 7,5), intente de nuevo.")
-            continue
-        if not 0 < horas <= 24:
-            print("Las horas deben ser mayores que 0 y como máximo 24, intente de nuevo.")
-            continue
-        return horas
+    return pedir_dato(mensaje, RegistroTiempo.validar_horas)
 
 def describir(registro):
     empleado = EmpleadoDAO.buscar_por_id(registro.id_empleado)
@@ -57,7 +51,7 @@ def registrar_horas(usuario_actual):
     if proyecto is None:
         print("\nNo existe un proyecto con ese id")
         return
-    if not any(e.id == empleado.id for e in EmpleadoDAO.listar_por_proyecto(proyecto.id)):
+    if not registros.esta_asignado(empleado.id, proyecto.id):
         print("\nEl empleado no está asignado a ese proyecto, primero asígnelo en el menú de proyectos")
         return
 
@@ -65,7 +59,12 @@ def registrar_horas(usuario_actual):
     horas = pedir_horas("Horas trabajadas: ")
 
     registro = RegistroTiempo(fecha, horas, empleado.id, proyecto.id)
-    if RegistroTiempoDAO.insertar(registro) is not None:
+    try:
+        guardado = registros.registrar(registro)
+    except ValueError as error:
+        print(f"\n{error}")
+        return
+    if guardado is not None:
         print(f"\nSe registraron {horas:g} horas de {empleado.nombre} en '{proyecto.nombre}'")
     else:
         print("\nNo fue posible registrar las horas")
@@ -85,7 +84,12 @@ def editar_registro():
     if input("¿Cambiar las horas? (s/n): ").strip().lower() == "s":
         registro.horas = pedir_horas("Nuevas horas trabajadas: ")
 
-    if RegistroTiempoDAO.actualizar(registro):
+    try:
+        actualizado = registros.actualizar(registro)
+    except ValueError as error:
+        print(f"\n{error}")
+        return
+    if actualizado:
         print("\nRegistro actualizado correctamente")
     else:
         print("\nNo fue posible actualizar el registro")
@@ -127,7 +131,9 @@ def exportar_informe_empleado(usuario_actual):
     try:
         for registro in registros:
             registro.exportar_informe(ruta)
-    except OSError as e:
-        print(f"\nNo fue posible escribir el informe: {e}")
+    except OSError:
+        registro_errores.error("No se pudo escribir %s", ruta, exc_info=True)
+        print(f"\nNo fue posible escribir el informe en {ruta}: revise que el archivo no esté abierto "
+              "y que tenga permisos en la carpeta.")
         return
     print(f"\nInforme de {empleado.nombre} exportado en {ruta} ({len(registros)} registros)")

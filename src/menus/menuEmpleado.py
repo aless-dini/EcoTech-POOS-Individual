@@ -1,5 +1,4 @@
-import re
-from datetime import datetime
+from entradas import pedir_dato
 from persistencia.empleado_dao import EmpleadoDAO
 from persistencia.departamento_dao import DepartamentoDAO
 from persistencia.proyecto_dao import ProyectoDAO
@@ -17,21 +16,6 @@ def a_entero_positivo(valor):
         return numero
     return None
 
-def pedir_texto(mensaje, maximo = 100):
-    while True:
-        texto = input(mensaje).strip()
-        if not texto:
-            print("Este campo no puede quedar vacío")
-            continue
-        elif len(texto) > maximo:
-            print("Este campo no puede tener más de {maximo} carácteres")
-            continue
-        elif not all(c.isalpha() or c == " " for c in texto):
-            print("Este campo solo acepta letras y espacios")
-            continue
-        return texto
-
-
 def pedir_entero(mensaje, minimo=1):
     while True:
         valor = input(mensaje).strip()
@@ -45,44 +29,14 @@ def pedir_entero(mensaje, minimo=1):
             continue
         return numero
 
-def pedir_direccion(mensaje, maximo=100):
-    while True:
-        texto = input(mensaje).strip()
-        if not texto:
-            print("Este campo no puede quedar vacío")
-            continue
-        elif len(texto) > maximo:
-            print("Este campo no puede tener más de {maximo} carácteres")
-            continue
-        return texto
-
-def pedir_telefono(mensaje):
-    while True:
-        telefono = input(mensaje).strip()
-        if telefono.isdecimal() and 8 <= len(telefono) <= 12:
-            return int(telefono)
-        print("El teléfono debe tener solo números (entre 8 y 12 dígitos), intente de nuevo.")
-
 def pedir_correo(mensaje, id_actual=None):
     while True:
-        correo = input(mensaje).strip()
-        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", correo):
-            print("El correo no es válido (ejemplo: nombre@dominio.cl), intente de nuevo.")
-            continue
+        correo = pedir_dato(mensaje, Empleado.validar_correo)
         existente = EmpleadoDAO.buscar_por_correo(correo)
         if existente is not None and existente.id != id_actual:
             print(f"El correo ya está registrado para {existente.nombre} (ID {existente.id}), ingrese otro.")
             continue
         return correo
-
-def pedir_fecha(mensaje):
-    while True:
-        fecha = input(mensaje).strip()
-        try:
-            datetime.strptime(fecha, "%d-%m-%Y")
-            return fecha
-        except ValueError:
-            print("La fecha debe tener el formato DD-MM-AAAA (ejemplo: 15-03-2024), intente de nuevo.")
 
 def pedir_departamento(mensaje):
     while True:
@@ -106,12 +60,12 @@ def quitar_gerencias(id_empleado, excepto=None):
             print(f"El departamento '{departamento.nombre}' quedó sin gerente")
 
 def ingresar_datos(id_actual=None):
-    nombre = pedir_texto("\nNombre: ")
-    direccion = pedir_direccion("Dirección (calle y número): ")
-    telefono = pedir_telefono("Teléfono: ")
+    nombre = pedir_dato("\nNombre: ", Empleado.validar_nombre)
+    direccion = pedir_dato("Dirección (calle y número): ", Empleado.validar_direccion)
+    telefono = pedir_dato("Teléfono: ", Empleado.validar_telefono)
     correo = pedir_correo("Correo: ", id_actual)
-    salario = pedir_entero("Salario: ")
-    inicioContrato = pedir_fecha("Inicio contrato (DD-MM-AAAA): ")
+    salario = pedir_dato("Salario: ", Empleado.validar_salario)
+    inicioContrato = pedir_dato("Inicio contrato (DD-MM-AAAA): ", Empleado.validar_inicio_contrato)
     id_departamento = pedir_departamento("Id del departamento (Enter para dejarlo sin departamento): ")
     return nombre, direccion, telefono, correo, salario, inicioContrato, id_departamento
 
@@ -194,9 +148,8 @@ def buscar_empleado_por_id(usuario_actual):
     elif es_administrador(usuario_actual):
         print("\n" + empleado.agregar_descripcion())
     else:
-        # Un empleado no ve el salario ni la dirección de sus compañeros.
         print(empleado.mostrar_datos())
 
 def buscar_empleado_por_nombre():
-    nombre = pedir_texto("Ingrese el nombre del empleado que desea buscar: ")
+    nombre = pedir_dato("Ingrese el nombre del empleado que desea buscar: ", Empleado.validar_nombre)
     mostrar_lista(EmpleadoDAO.buscar_por_nombre(nombre))
