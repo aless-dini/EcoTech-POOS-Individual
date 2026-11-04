@@ -5,7 +5,9 @@ from persistencia.proyecto_dao import ProyectoDAO
 from persistencia.registroTiempo_dao import RegistroTiempoDAO
 from persistencia.usuario_dao import UsuarioDAO
 from dominio.empleado import Empleado
-from servicios.autenticacion import es_administrador
+from servicios import gestion_empleados
+from servicios.mi_cuenta import mi_ficha, actualizar_mis_datos
+from servicios.permisos import exigir_admin
 
 def a_entero_positivo(valor):
     try:
@@ -69,7 +71,8 @@ def ingresar_datos(id_actual=None):
     id_departamento = pedir_departamento("Id del departamento (Enter para dejarlo sin departamento): ")
     return nombre, direccion, telefono, correo, salario, inicioContrato, id_departamento
 
-def registrar_empleado():
+def registrar_empleado(usuario_actual):
+    exigir_admin(usuario_actual)
     nombre, direccion, telefono, correo, salario, inicioContrato, id_departamento = ingresar_datos()
 
     empleado = Empleado(nombre, direccion, telefono, correo, salario, inicioContrato, id_departamento)
@@ -79,7 +82,8 @@ def registrar_empleado():
     else:
         print("\nNo fue posible registrar el empleado.")
 
-def actualizar_empleado():
+def actualizar_empleado(usuario_actual):
+    exigir_admin(usuario_actual)
     idEmpleado = pedir_entero("Ingrese el id del empleado que desea actualizar: ")
     actual = EmpleadoDAO.buscar_por_id(idEmpleado)
     if actual is None:
@@ -99,11 +103,15 @@ def actualizar_empleado():
     else:
         print("\nNo fue posible actualizar al empleado")
 
-def eliminar_empleado():
+def eliminar_empleado(usuario_actual):
+    exigir_admin(usuario_actual)
     idEmpleado = pedir_entero("Ingrese el id del empleado que desea eliminar: ")
     empleado = EmpleadoDAO.buscar_por_id(idEmpleado)
     if empleado is None:
         print("\nNo existe un empleado con ese id")
+        return
+    if empleado.id == usuario_actual["empleado_id"]:
+        print("\nNo puede eliminar el empleado de la cuenta con la que inició sesión")
         return
 
     if RegistroTiempoDAO.listar_por_empleado(empleado.id):
@@ -132,24 +140,46 @@ def mostrar_lista(empleados):
     for empleado in empleados:
         print(empleado.mostrar_datos())
 
-def listar_empleados():
-    mostrar_lista(EmpleadoDAO.listar_todos())
+def listar_empleados(usuario_actual):
+    mostrar_lista(gestion_empleados.listar_todos(usuario_actual))
 
-def listar_empleados_por_departamento():
+def listar_empleados_por_departamento(usuario_actual):
+    exigir_admin(usuario_actual)
     idDepartamento = pedir_entero("Ingrese el id del departamento: ")
-    mostrar_lista(EmpleadoDAO.listar_por_departamento(idDepartamento))
+    mostrar_lista(gestion_empleados.listar_por_departamento(usuario_actual, idDepartamento))
 
 def buscar_empleado_por_id(usuario_actual):
+    exigir_admin(usuario_actual)
     idEmpleado = pedir_entero("Ingrese el id del empleado que desea buscar: ")
 
-    empleado = EmpleadoDAO.buscar_por_id(idEmpleado)
+    empleado = gestion_empleados.buscar_por_id(usuario_actual, idEmpleado)
     if empleado is None:
         print("\nNo se encontró un empleado con ese id")
-    elif es_administrador(usuario_actual):
-        print("\n" + empleado.agregar_descripcion())
     else:
-        print(empleado.mostrar_datos())
+        print("\n" + empleado.agregar_descripcion())
 
-def buscar_empleado_por_nombre():
+def buscar_empleado_por_nombre(usuario_actual):
+    exigir_admin(usuario_actual)
     nombre = pedir_dato("Ingrese el nombre del empleado que desea buscar: ", Empleado.validar_nombre)
-    mostrar_lista(EmpleadoDAO.buscar_por_nombre(nombre))
+    mostrar_lista(gestion_empleados.buscar_por_nombre(usuario_actual, nombre))
+
+def mostrar_mi_ficha(usuario_actual):
+    try:
+        empleado = mi_ficha(usuario_actual)
+    except (PermissionError, ValueError) as error:
+        print(f"\n{error}")
+        return
+    print(empleado.mostrar_datos())
+
+def editar_mis_datos(usuario_actual):
+    nombre = pedir_dato("\nNuevo nombre: ", Empleado.validar_nombre)
+    correo = pedir_correo("Nuevo correo: ", usuario_actual["empleado_id"])
+    try:
+        actualizado = actualizar_mis_datos(usuario_actual, nombre, correo)
+    except (PermissionError, ValueError) as error:
+        print(f"\n{error}")
+        return
+    if actualizado:
+        print("\nSus datos se actualizaron correctamente")
+    else:
+        print("\nNo fue posible actualizar sus datos")

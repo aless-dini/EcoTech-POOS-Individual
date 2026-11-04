@@ -6,13 +6,18 @@ from entradas import pedir_dato
 from menus.menuEmpleado import pedir_entero
 from persistencia.errores import registro as registro_errores
 from servicios import registros
-from servicios.autenticacion import es_administrador
+from servicios.mi_cuenta import mis_registros
+from servicios.permisos import es_administrador, exigir_admin, exigir_sesion
+
+# Las funciones de administración comprueban el permiso antes de usar el DAO,
+# aunque el menú ya oculte la opción (el PermissionError lo muestra el menú principal).
 
 def pedir_empleado_segun_rol(usuario_actual):
+    # El admin elige el empleado; el empleado siempre usa el suyo, tomado de la sesión.
     if es_administrador(usuario_actual):
         idEmpleado = pedir_entero("\nIngrese el id del empleado: ")
     else:
-        idEmpleado = usuario_actual["id_empleado"]
+        idEmpleado = usuario_actual["empleado_id"]
     empleado = EmpleadoDAO.buscar_por_id(idEmpleado)
     if empleado is None:
         print("\nNo existe un empleado con ese id")
@@ -42,6 +47,7 @@ def mostrar_registros(registros):
     print(f"\nTotal: {total:g} horas")
 
 def registrar_horas(usuario_actual):
+    exigir_sesion(usuario_actual)
     empleado = pedir_empleado_segun_rol(usuario_actual)
     if empleado is None:
         return
@@ -69,7 +75,8 @@ def registrar_horas(usuario_actual):
     else:
         print("\nNo fue posible registrar las horas")
 
-def editar_registro():
+def editar_registro(usuario_actual):
+    exigir_admin(usuario_actual)
     idRegistro = pedir_entero("Ingrese el id del registro que desea editar: ")
     registro = RegistroTiempoDAO.buscar_por_id(idRegistro)
     if registro is None:
@@ -94,23 +101,35 @@ def editar_registro():
     else:
         print("\nNo fue posible actualizar el registro")
 
-def eliminar_registro():
+def eliminar_registro(usuario_actual):
+    exigir_admin(usuario_actual)
     idRegistro = pedir_entero("Ingrese el id del registro que desea eliminar: ")
     if RegistroTiempoDAO.eliminar(idRegistro):
         print("\nRegistro eliminado correctamente")
     else:
         print("\nNo existe un registro con ese id")
 
-def listar_registros():
+def listar_registros(usuario_actual):
+    exigir_admin(usuario_actual)
     mostrar_registros(RegistroTiempoDAO.listar_todos())
 
 def listar_registros_empleado(usuario_actual):
+    exigir_admin(usuario_actual)
     empleado = pedir_empleado_segun_rol(usuario_actual)
     if empleado is None:
         return
     mostrar_registros(RegistroTiempoDAO.listar_por_empleado(empleado.id))
 
-def listar_registros_proyecto():
+def ver_mis_registros(usuario_actual):
+    try:
+        propios = mis_registros(usuario_actual)
+    except PermissionError as error:
+        print(f"\n{error}")
+        return
+    mostrar_registros(propios)
+
+def listar_registros_proyecto(usuario_actual):
+    exigir_admin(usuario_actual)
     idProyecto = pedir_entero("Ingrese el id del proyecto: ")
     if ProyectoDAO.buscar_por_id(idProyecto) is None:
         print("\nNo existe un proyecto con ese id")
@@ -118,6 +137,7 @@ def listar_registros_proyecto():
     mostrar_registros(RegistroTiempoDAO.listar_por_proyecto(idProyecto))
 
 def exportar_informe_empleado(usuario_actual):
+    exigir_sesion(usuario_actual)
     empleado = pedir_empleado_segun_rol(usuario_actual)
     if empleado is None:
         return
@@ -129,6 +149,8 @@ def exportar_informe_empleado(usuario_actual):
 
     ruta = f"informe_{empleado.id}.txt"
     try:
+        # exportar_informe agrega al final: se vacía el archivo para no repetir un informe anterior.
+        open(ruta, "w", encoding="utf-8").close()
         for registro in registros:
             registro.exportar_informe(ruta)
     except OSError:

@@ -5,6 +5,12 @@ from persistencia.registroTiempo_dao import RegistroTiempoDAO
 from entradas import pedir_dato, pedir_opcional
 from menus.menuEmpleado import pedir_entero, mostrar_lista
 from servicios.registros import esta_asignado, validar_inicio_proyecto
+from servicios import gestion_empleados
+from servicios.mi_cuenta import mis_proyectos
+from servicios.permisos import exigir_admin
+
+# Las funciones de administración comprueban el permiso antes de usar el DAO,
+# aunque el menú ya oculte la opción (el PermissionError lo muestra el menú principal).
 
 def pedir_proyecto_existente(mensaje):
     idProyecto = pedir_entero(mensaje)
@@ -13,7 +19,8 @@ def pedir_proyecto_existente(mensaje):
         print("\nNo existe un proyecto con ese id")
     return proyecto
 
-def crear_proyecto():
+def crear_proyecto(usuario_actual):
+    exigir_admin(usuario_actual)
     nombre = pedir_dato("\nNombre del proyecto: ", Proyecto.validar_nombre)
     descripcion = pedir_dato("Descripción: ", Proyecto.validar_descripcion)
     fechaInicio = pedir_dato("Fecha de inicio (DD-MM-AAAA): ", Proyecto.validar_fecha_inicio)
@@ -24,7 +31,8 @@ def crear_proyecto():
     else:
         print("\nNo fue posible crear el proyecto")
 
-def editar_proyecto():
+def editar_proyecto(usuario_actual):
+    exigir_admin(usuario_actual)
     proyecto = pedir_proyecto_existente("Ingrese el id del proyecto que desea editar: ")
     if proyecto is None:
         return
@@ -52,7 +60,8 @@ def editar_proyecto():
     else:
         print("\nNo fue posible actualizar el proyecto")
 
-def eliminar_proyecto():
+def eliminar_proyecto(usuario_actual):
+    exigir_admin(usuario_actual)
     proyecto = pedir_proyecto_existente("Ingrese el id del proyecto que desea eliminar: ")
     if proyecto is None:
         return
@@ -69,15 +78,22 @@ def eliminar_proyecto():
     else:
         print("\nNo fue posible eliminar el proyecto")
 
-def listar_proyectos():
-    proyectos = ProyectoDAO.listar_todos()
+def mostrar_proyectos(proyectos, sin_resultados):
     if not proyectos:
-        print("\nNo hay proyectos registrados.")
+        print(f"\n{sin_resultados}")
         return
     for proyecto in proyectos:
         print(f"\nId {proyecto.id}, Nombre {proyecto.nombre}, Inicio {proyecto.fechaInicio}")
 
-def buscar_proyecto_por_id():
+def listar_proyectos(usuario_actual):
+    exigir_admin(usuario_actual)
+    mostrar_proyectos(ProyectoDAO.listar_todos(), "No hay proyectos registrados.")
+
+def mostrar_mis_proyectos(usuario_actual):
+    mostrar_proyectos(mis_proyectos(usuario_actual), "No está asignado a ningún proyecto.")
+
+def buscar_proyecto_por_id(usuario_actual):
+    exigir_admin(usuario_actual)
     proyecto = pedir_proyecto_existente("Ingrese el id del proyecto que desea buscar: ")
     if proyecto is None:
         return
@@ -88,7 +104,8 @@ def buscar_proyecto_por_id():
     print(f"Descripción: {proyecto.descripcion}")
     print(f"Inicio: {proyecto.fechaInicio} | Empleados: {len(empleados)} | Horas registradas: {horas:g}")
 
-def asignar_empleado_proyecto():
+def asignar_empleado_proyecto(usuario_actual):
+    exigir_admin(usuario_actual)
     proyecto = pedir_proyecto_existente("Ingrese el id del proyecto: ")
     if proyecto is None:
         return
@@ -107,7 +124,8 @@ def asignar_empleado_proyecto():
     else:
         print("\nNo fue posible asignar el empleado al proyecto")
 
-def quitar_empleado_proyecto():
+def quitar_empleado_proyecto(usuario_actual):
+    exigir_admin(usuario_actual)
     proyecto = pedir_proyecto_existente("Ingrese el id del proyecto: ")
     if proyecto is None:
         return
@@ -118,9 +136,10 @@ def quitar_empleado_proyecto():
     else:
         print("\nEse empleado no está asignado a este proyecto")
 
-def listar_empleados_proyecto():
+def listar_empleados_proyecto(usuario_actual):
+    exigir_admin(usuario_actual)
     proyecto = pedir_proyecto_existente("Ingrese el id del proyecto: ")
     if proyecto is None:
         return
 
-    mostrar_lista(EmpleadoDAO.listar_por_proyecto(proyecto.id))
+    mostrar_lista(gestion_empleados.listar_por_proyecto(usuario_actual, proyecto.id))

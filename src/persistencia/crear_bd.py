@@ -78,7 +78,7 @@ def crear_tablas():
                     id_empleado INTEGER NOT NULL UNIQUE,
                     nombre_usuario TEXT NOT NULL UNIQUE,
                     password_hash TEXT NOT NULL,
-                    rol TEXT NOT NULL,
+                    rol TEXT NOT NULL DEFAULT 'empleado' CHECK (rol IN ('admin', 'empleado')),
                     FOREIGN KEY (id_empleado) REFERENCES empleado(id)
                 )""",
             ]
@@ -128,7 +128,8 @@ def crear_tablas():
                     id_empleado INT NOT NULL UNIQUE,
                     nombre_usuario VARCHAR(40) NOT NULL UNIQUE,
                     password_hash VARCHAR(100) NOT NULL,
-                    rol VARCHAR(100) NOT NULL,
+                    rol VARCHAR(100) NOT NULL DEFAULT 'empleado',
+                    CONSTRAINT ck_usuario_rol CHECK (rol IN ('admin', 'empleado')),
                     FOREIGN KEY (id_empleado) REFERENCES empleado(id)
                 ) ENGINE=InnoDB""",
             ]
@@ -137,6 +138,9 @@ def crear_tablas():
             cursor.execute(sql)
 
         asegurar_correo_unico(cursor)
+
+        # Versiones anteriores guardaban el rol de administrador como 'administrador'.
+        cursor.execute("UPDATE usuario SET rol = 'admin' WHERE rol = 'administrador'")
 
         if obtener_motor() != "sqlite":
             cursor.execute(

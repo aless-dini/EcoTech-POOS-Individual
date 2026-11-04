@@ -2,6 +2,7 @@ import bcrypt
 from dominio.usuario import Usuario
 from persistencia.usuario_dao import UsuarioDAO
 from persistencia.empleado_dao import EmpleadoDAO
+from servicios.permisos import exigir_admin
 
 MAX_BYTES_BCRYPT = 72
 SIN_CLAVE = ""
@@ -26,7 +27,14 @@ def verificar_clave(clave, password_hash):
     return bcrypt.checkpw(datos, password_hash.encode("utf-8"))
 
 
-def registrar_usuario(id_empleado, nombre, clave, rol="empleado", sin_clave=False):
+def registrar_cuenta_habitual(sesion, id_empleado, nombre, clave):
+    # Solo el administrador puede crear cuentas; la cuenta siempre queda como empleado.
+    exigir_admin(sesion)
+    return crear_cuenta(id_empleado, nombre, clave, "empleado")
+
+
+def crear_cuenta(id_empleado, nombre, clave, rol="empleado", sin_clave=False):
+    # Uso interno (semilla y registro protegido): no comprueba la sesión.
     nombre = Usuario.normalizar_usuario(nombre)
     if EmpleadoDAO.buscar_por_id(id_empleado) is None:
         raise ValueError("No existe un empleado con ese ID.")
@@ -49,13 +57,20 @@ def autenticar(nombre, clave):
     cuenta = UsuarioDAO.buscar_por_nombre(nombre)
     if cuenta is None or not verificar_clave(clave, cuenta.password_hash):
         return None
-    return {"id": cuenta.id, "id_empleado": cuenta.id_empleado,
+    return {"id": cuenta.id, "empleado_id": cuenta.id_empleado,
             "nombre_usuario": cuenta.nombre_usuario, "rol": cuenta.rol,
             "sin_clave": cuenta.password_hash == SIN_CLAVE}
 
 
-def es_administrador(usuario_actual):
-    return usuario_actual is not None and usuario_actual["rol"] == "administrador"
+def cambiar_rol(sesion, id_usuario, nuevo_rol):
+    exigir_admin(sesion)
+    cuenta = UsuarioDAO.buscar_por_id(id_usuario)
+    if cuenta is None:
+        raise ValueError("No existe un usuario con ese id.")
+    if cuenta.id == sesion["id"] and nuevo_rol != "admin":
+        raise ValueError("No puede quitarse a sí mismo el rol de administrador.")
+    cuenta.rol = nuevo_rol
+    return UsuarioDAO.actualizar(cuenta)
 
 
 def cambiar_clave(id_usuario, clave_actual, clave_nueva):

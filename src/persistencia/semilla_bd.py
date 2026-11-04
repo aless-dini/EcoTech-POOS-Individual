@@ -7,7 +7,7 @@ from persistencia.departamento_dao import DepartamentoDAO
 from persistencia.empleado_dao import EmpleadoDAO
 from persistencia.errores import ErrorBaseDatos
 from persistencia.usuario_dao import UsuarioDAO
-from servicios.autenticacion import registrar_usuario
+from servicios.autenticacion import crear_cuenta
 
 DEPARTAMENTOS = [
     "Recursos Humanos",
@@ -117,7 +117,7 @@ def cargar_cuenta_admin():
         print(f"Empleado creado: {correo}")
 
     try:
-        usuario_id = registrar_usuario(empleado.id, ADMIN_USUARIO, clave, "administrador", sin_clave)
+        usuario_id = crear_cuenta(empleado.id, ADMIN_USUARIO, clave, "admin", sin_clave)
     except (TypeError, ValueError) as error:
         print(f"No fue posible crear la cuenta admin: {error}")
         return False

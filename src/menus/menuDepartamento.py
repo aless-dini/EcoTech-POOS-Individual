@@ -2,9 +2,15 @@ from dominio.departamento import Departamento
 from persistencia.departamento_dao import DepartamentoDAO
 from persistencia.empleado_dao import EmpleadoDAO
 from entradas import pedir_dato, pedir_opcional
+from servicios import gestion_empleados
+from servicios.mi_cuenta import mi_departamento
+from servicios.permisos import exigir_admin
 from menus.menuEmpleado import (
     pedir_entero, mostrar_lista, a_entero_positivo, quitar_gerencias,
 )
+
+# Las funciones de administración comprueban el permiso antes de usar el DAO,
+# aunque el menú ya oculte la opción (el PermissionError lo muestra el menú principal).
 
 def pedir_departamento_existente(mensaje):
     idDepartamento = pedir_entero(mensaje)
@@ -34,7 +40,8 @@ def pedir_gerente(mensaje):
             continue
         return id_gerente
 
-def crear_departamento():
+def crear_departamento(usuario_actual):
+    exigir_admin(usuario_actual)
     nombre = pedir_dato("\nNombre del departamento: ", validar_nombre_libre)
     id_gerente = pedir_gerente("Id del empleado gerente (Enter para dejarlo sin gerente): ")
 
@@ -44,7 +51,8 @@ def crear_departamento():
     else:
         print("\nNo fue posible crear el departamento")
 
-def eliminar_departamento():
+def eliminar_departamento(usuario_actual):
+    exigir_admin(usuario_actual)
     departamento = pedir_departamento_existente("Ingrese el id del departamento que desea eliminar: ")
     if departamento is None:
         return
@@ -58,7 +66,8 @@ def eliminar_departamento():
     else:
         print("\nNo fue posible eliminar el departamento")
 
-def agregar_empleado_departamento():
+def agregar_empleado_departamento(usuario_actual):
+    exigir_admin(usuario_actual)
     departamento = pedir_departamento_existente("Ingrese el id del departamento: ")
     if departamento is None:
         return
@@ -78,7 +87,8 @@ def agregar_empleado_departamento():
     else:
         print("\nNo fue posible agregar el empleado al departamento")
 
-def quitar_empleado_departamento():
+def quitar_empleado_departamento(usuario_actual):
+    exigir_admin(usuario_actual)
     departamento = pedir_departamento_existente("Ingrese el id del departamento: ")
     if departamento is None:
         return
@@ -101,14 +111,16 @@ def quitar_empleado_departamento():
     else:
         print("\nNo fue posible quitar el empleado del departamento")
 
-def listar_empleados_departamento():
+def listar_empleados_departamento(usuario_actual):
+    exigir_admin(usuario_actual)
     departamento = pedir_departamento_existente("Ingrese el id del departamento: ")
     if departamento is None:
         return
 
-    mostrar_lista(EmpleadoDAO.listar_por_departamento(departamento.id))
+    mostrar_lista(gestion_empleados.listar_por_departamento(usuario_actual, departamento.id))
 
-def ver_cantidad_empleados():
+def ver_cantidad_empleados(usuario_actual):
+    exigir_admin(usuario_actual)
     departamento = pedir_departamento_existente("Ingrese el id del departamento: ")
     if departamento is None:
         return
@@ -117,7 +129,15 @@ def ver_cantidad_empleados():
         departamento.agregar_empleado(empleado)
     print(f"\nEl departamento '{departamento.nombre}' tiene {departamento.cantidad_empleados()} empleado(s)")
 
-def editar_departamento():
+def mostrar_mi_departamento(usuario_actual):
+    departamento = mi_departamento(usuario_actual)
+    if departamento is None:
+        print("\nNo pertenece a ningún departamento.")
+        return
+    print(f"\nId {departamento.id}, Departamento {departamento.nombre}")
+
+def editar_departamento(usuario_actual):
+    exigir_admin(usuario_actual)
     departamento = pedir_departamento_existente("Ingrese el id del departamento que desea editar: ")
     if departamento is None:
         return

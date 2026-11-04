@@ -2,7 +2,7 @@ class Usuario:
     MIN_USUARIO = 3
     MAX_USUARIO = 40
     MIN_CLAVE = 8
-    ROLES = ("administrador", "empleado")
+    ROLES = ("admin", "empleado")
 
     def __init__(self, nombre_usuario: str, password_hash: str, id_empleado: int, rol: str = "empleado", id = None):
         if type(id_empleado) is not int or id_empleado <= 0:

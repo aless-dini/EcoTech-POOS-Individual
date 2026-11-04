@@ -1,9 +1,12 @@
 import sys
 from getpass import getpass
 from dominio.usuario import Usuario
-from entradas import pedir_dato
+from entradas import pedir_dato, pedir_opcional
 from persistencia.usuario_dao import UsuarioDAO
-from servicios.autenticacion import registrar_usuario, autenticar, cambiar_clave, tiene_clave
+from servicios.autenticacion import (
+    registrar_cuenta_habitual, autenticar, cambiar_clave, cambiar_rol, tiene_clave,
+)
+from servicios.permisos import exigir_admin
 from menus.menuEmpleado import a_entero_positivo
 
 def pedir_contraseña(mensaje):
@@ -17,18 +20,22 @@ def validar_id(valor):
         raise ValueError("El ID debe ser un número entero positivo.")
     return numero
 
-def solicitar_registro():
+def solicitar_registro(usuario_actual):
+    # El formulario no pide rol: el servicio asigna siempre "empleado".
     try:
+        exigir_admin(usuario_actual)
         id_empleado = pedir_dato("\nID del empleado: ", validar_id)
-        nombre = pedir_dato("Nuevo usuario: ", Usuario.normalizar_usuario)
+        nombre = pedir_opcional("Nuevo usuario (Enter para cancelar): ", Usuario.normalizar_usuario)
+        if nombre is None:
+            print("\nRegistro cancelado.")
+            return None
         clave = pedir_dato(f"Contraseña (mínimo {Usuario.MIN_CLAVE} caracteres): ",
                            Usuario.validar_clave, pedir_contraseña)
         if clave != pedir_contraseña("Repita la contraseña: "):
             print("\nLas contraseñas no coinciden. Vuelva al registro.")
             return None
-        rol = pedir_dato(f"Rol ({' / '.join(Usuario.ROLES)}): ", Usuario.validar_rol)
-        usuario_id = registrar_usuario(id_empleado, nombre, clave, rol)
-    except (TypeError, ValueError) as error:
+        usuario_id = registrar_cuenta_habitual(usuario_actual, id_empleado, nombre, clave)
+    except (PermissionError, TypeError, ValueError) as error:
         print(f"\n{error}")
         return None
 
@@ -56,7 +63,7 @@ def mostrar_perfil(usuario_actual):
         print("\nInicie sesión para ver el perfil.")
         return
     print(f"\nUsuario: {usuario_actual['nombre_usuario']}")
-    print(f"Empleado: {usuario_actual['id_empleado']}")
+    print(f"Empleado: {usuario_actual['empleado_id']}")
     print(f"Rol: {usuario_actual['rol']}")
 
 def cambiar_contraseña(usuario_actual):
@@ -87,20 +94,27 @@ def pedir_usuario_por_id(mensaje):
 def mostrar_usuario(usuario):
     print(f"\nId {usuario.id}, Usuario {usuario.nombre_usuario}, Rol {usuario.rol}, Empleado {usuario.id_empleado}")
 
-def editar_usuario():
+def editar_usuario(usuario_actual):
+    exigir_admin(usuario_actual)
     usuario = pedir_usuario_por_id("\nId del usuario que desea editar: ")
     if usuario is None:
         return
 
     mostrar_usuario(usuario)
-    usuario.rol = pedir_dato(f"Nuevo rol ({' / '.join(Usuario.ROLES)}): ", Usuario.validar_rol)
+    nuevo_rol = pedir_dato(f"Nuevo rol ({' / '.join(Usuario.ROLES)}): ", Usuario.validar_rol)
+    try:
+        actualizado = cambiar_rol(usuario_actual, usuario.id, nuevo_rol)
+    except (PermissionError, ValueError) as error:
+        print(f"\n{error}")
+        return
 
-    if UsuarioDAO.actualizar(usuario):
+    if actualizado:
         print("\nUsuario actualizado correctamente")
     else:
         print("\nNo fue posible actualizar el usuario")
 
 def eliminar_usuario(usuario_actual):
+    exigir_admin(usuario_actual)
     usuario = pedir_usuario_por_id("\nId del usuario que desea eliminar: ")
     if usuario is None:
         return
@@ -117,7 +131,8 @@ def eliminar_usuario(usuario_actual):
     else:
         print("\nNo fue posible eliminar el usuario")
 
-def listar_usuarios():
+def listar_usuarios(usuario_actual):
+    exigir_admin(usuario_actual)
     usuarios = UsuarioDAO.listar_todos()
     if not usuarios:
         print("\nNo hay usuarios registrados.")
@@ -125,7 +140,8 @@ def listar_usuarios():
     for usuario in usuarios:
         mostrar_usuario(usuario)
 
-def buscar_usuario_por_id():
+def buscar_usuario_por_id(usuario_actual):
+    exigir_admin(usuario_actual)
     usuario = pedir_usuario_por_id("\nId del usuario: ")
     if usuario is not None:
         mostrar_usuario(usuario)
