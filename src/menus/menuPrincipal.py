@@ -24,6 +24,7 @@ from menus.menuUsuario import (
     solicitar_registro, cambiar_contraseña, editar_usuario, eliminar_usuario,
     listar_usuarios, buscar_usuario_por_id, mostrar_perfil,
 )
+from menus.menuIndicadores import consultar_valor_actualizado, ver_historial_guardado
 from persistencia.errores import ErrorBaseDatos
 from servicios.permisos import es_administrador
 
@@ -86,6 +87,10 @@ def crear_submenus():
             ("Listar usuarios", listar_usuarios, ADMIN),
             ("Buscar usuario por id", buscar_usuario_por_id, ADMIN),
         ]),
+        "6": ("Indicadores (UF, UTM, dólar)", [
+            ("Consultar valor actualizado", consultar_valor_actualizado, TODOS),
+            ("Ver historial guardado", ver_historial_guardado, TODOS),
+        ]),
     }
 
 def puede_usar(usuario_actual, quien):
@@ -107,9 +112,9 @@ def menu(usuario_actual, submenus):
     print(f"\n***** Menú principal ({usuario_actual['nombre_usuario']}, {usuario_actual['rol']}) *****")
     for numero, (titulo, _) in submenus.items():
         print(f"{numero}. {titulo}")
-    print("6. Mi perfil")
-    print("7. Cerrar sesión")
-    print("8. Salir")
+    print("7. Mi perfil")
+    print("8. Cerrar sesión")
+    print("9. Salir")
 
 def ejecutar_submenu(usuario_actual, titulo, opciones):
     permitidas = opciones_permitidas(usuario_actual, opciones)
@@ -144,11 +149,11 @@ def menu_principal(usuario_actual):
         menu(usuario_actual, submenus)
         seleccion = input("\n¿Qué quieres hacer?: ").strip()
 
-        if seleccion == "6":
+        if seleccion == "7":
             mostrar_perfil(usuario_actual)
-        elif seleccion == "7":
-            return "cerrar_sesion"
         elif seleccion == "8":
+            return "cerrar_sesion"
+        elif seleccion == "9":
             return "salir"
         elif seleccion in submenus:
             titulo, opciones = submenus[seleccion]

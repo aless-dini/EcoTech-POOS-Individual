@@ -81,6 +81,16 @@ def crear_tablas():
                     rol TEXT NOT NULL DEFAULT 'empleado' CHECK (rol IN ('admin', 'empleado')),
                     FOREIGN KEY (id_empleado) REFERENCES empleado(id)
                 )""",
+                """CREATE TABLE IF NOT EXISTS indicador_api (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    fuente TEXT NOT NULL,
+                    codigo TEXT NOT NULL,
+                    fecha TEXT NOT NULL,
+                    valor REAL NOT NULL CHECK (valor > 0),
+                    unidad TEXT NOT NULL,
+                    verificado_en TEXT,
+                    UNIQUE (fuente, codigo, fecha)
+                )""",
             ]
         else:
             sentencias = [
@@ -131,6 +141,16 @@ def crear_tablas():
                     rol VARCHAR(100) NOT NULL DEFAULT 'empleado',
                     CONSTRAINT ck_usuario_rol CHECK (rol IN ('admin', 'empleado')),
                     FOREIGN KEY (id_empleado) REFERENCES empleado(id)
+                ) ENGINE=InnoDB""",
+                """CREATE TABLE IF NOT EXISTS indicador_api (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    fuente VARCHAR(50) NOT NULL,
+                    codigo VARCHAR(10) NOT NULL,
+                    fecha VARCHAR(10) NOT NULL,
+                    valor DOUBLE NOT NULL,
+                    unidad VARCHAR(10) NOT NULL,
+                    verificado_en VARCHAR(19),
+                    CONSTRAINT uq_indicador_observacion UNIQUE (fuente, codigo, fecha)
                 ) ENGINE=InnoDB""",
             ]
 

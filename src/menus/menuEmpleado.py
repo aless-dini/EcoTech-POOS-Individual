@@ -1,3 +1,4 @@
+from datetime import date
 from entradas import pedir_dato
 from persistencia.empleado_dao import EmpleadoDAO
 from persistencia.departamento_dao import DepartamentoDAO
@@ -8,6 +9,8 @@ from dominio.empleado import Empleado
 from servicios import gestion_empleados
 from servicios.mi_cuenta import mi_ficha, actualizar_mis_datos
 from servicios.permisos import exigir_admin
+from servicios.indicadores import salario_en_uf
+from menus.menuIndicadores import formato_pesos
 
 def a_entero_positivo(valor):
     try:
@@ -157,6 +160,18 @@ def buscar_empleado_por_id(usuario_actual):
         print("\nNo se encontró un empleado con ese id")
     else:
         print("\n" + empleado.agregar_descripcion())
+        mostrar_salario_en_uf(usuario_actual, empleado)
+
+def mostrar_salario_en_uf(usuario_actual, empleado):
+    # Usa la UF de hoy guardada; si no está, la consulta a la API (con respaldo de la BD).
+    monto_uf, uf, origen, mensaje = salario_en_uf(usuario_actual, empleado.salario)
+    if monto_uf is None:
+        print(f"Salario en UF: no disponible.\n{mensaje}")
+        return
+    print(f"Salario: ${formato_pesos(empleado.salario, 0)} = {formato_pesos(monto_uf)} UF "
+          f"(UF del {uf.fecha}: ${formato_pesos(uf.valor)}, origen {origen})")
+    if uf.fecha != date.today().isoformat():
+        print(f"Aviso: no hay UF de hoy. {mensaje}")
 
 def buscar_empleado_por_nombre(usuario_actual):
     exigir_admin(usuario_actual)
@@ -170,6 +185,7 @@ def mostrar_mi_ficha(usuario_actual):
         print(f"\n{error}")
         return
     print(empleado.mostrar_datos())
+    mostrar_salario_en_uf(usuario_actual, empleado)
 
 def editar_mis_datos(usuario_actual):
     nombre = pedir_dato("\nNuevo nombre: ", Empleado.validar_nombre)

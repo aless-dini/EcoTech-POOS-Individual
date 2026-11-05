@@ -1,13 +1,16 @@
 import os
 from dominio.departamento import Departamento
 from dominio.empleado import Empleado
+from dominio.proyecto import Proyecto
 from dominio.usuario import Usuario
 from persistencia.crear_bd import crear_tablas
 from persistencia.departamento_dao import DepartamentoDAO
 from persistencia.empleado_dao import EmpleadoDAO
 from persistencia.errores import ErrorBaseDatos
+from persistencia.proyecto_dao import ProyectoDAO
 from persistencia.usuario_dao import UsuarioDAO
 from servicios.autenticacion import crear_cuenta
+from servicios.registros import esta_asignado
 
 DEPARTAMENTOS = [
     "Recursos Humanos",
@@ -42,6 +45,27 @@ EMPLEADOS = [
 
 ADMIN_EMPLEADO = ("Administrador EcoTech", "Av Providencia 1000", 912345600, "admin@ecotech.example", 1500000, "01-01-2020")
 ADMIN_USUARIO = "admin"
+
+PROYECTOS = [
+    ("Portal web EcoTech", "Sitio público con los servicios de la empresa", "01-03-2025"),
+    ("Huella de carbono", "Cálculo de emisiones para clientes", "15-06-2025"),
+    ("Migración a la nube", "Traslado de los sistemas internos", "01-09-2025"),
+]
+
+# (correo del empleado, nombre del proyecto)
+ASIGNACIONES = [
+    ("ana.torres@ecotech.example", "Portal web EcoTech"),
+    ("ana.torres@ecotech.example", "Huella de carbono"),
+    ("bruno.diaz@ecotech.example", "Migración a la nube"),
+    ("isabel.fuentes@ecotech.example", "Portal web EcoTech"),
+    ("javier.morales@ecotech.example", "Migración a la nube"),
+]
+
+# Cuentas habituales (rol empleado / funcionario) vinculadas a empleados de la semilla.
+CUENTAS_EMPLEADO = [
+    ("ana_torres", "ana.torres@ecotech.example"),
+    ("bruno_diaz", "bruno.diaz@ecotech.example"),
+]
 
 
 def cargar_departamentos():
@@ -94,18 +118,76 @@ def asignar_gerentes(ids_departamentos):
             print(f"Gerente de {nombre_depto}: {gerente.nombre}")
 
 
+def cargar_proyectos():
+    existentes = {proyecto.nombre: proyecto.id for proyecto in ProyectoDAO.listar_todos()}
+    for nombre, descripcion, fecha_inicio in PROYECTOS:
+        if nombre in existentes:
+            print(f"Ya existe el proyecto: {nombre}")
+            continue
+        proyecto = ProyectoDAO.insertar(Proyecto(nombre, descripcion, fecha_inicio))
+        if proyecto is None:
+            print(f"No fue posible crear el proyecto: {nombre}")
+            continue
+        print(f"Proyecto creado: {nombre}")
+        existentes[nombre] = proyecto.id
+    return existentes
+
+
+def asignar_proyectos(ids_proyectos):
+    for correo, nombre_proyecto in ASIGNACIONES:
+        empleado = EmpleadoDAO.buscar_por_correo(correo)
+        id_proyecto = ids_proyectos.get(nombre_proyecto)
+        if empleado is None or id_proyecto is None or esta_asignado(empleado.id, id_proyecto):
+            continue
+        if ProyectoDAO.asignar_empleado(id_proyecto, empleado.id):
+            print(f"{empleado.nombre} asignado a '{nombre_proyecto}'")
+
+
+def leer_clave(variable):
+    # Devuelve (clave, sin_clave) o None si la clave del .env no cumple las reglas.
+    clave = os.getenv(variable)
+    if not clave:
+        return None, True
+    try:
+        Usuario.validar_clave(clave)
+    except (TypeError, ValueError) as error:
+        print(f"{variable} del archivo .env no es válida: {error}")
+        return None
+    return clave, False
+
+
+def cargar_cuentas_empleado():
+    # Si la cuenta ya existe no se toca: repetir la semilla no reinicia contraseñas ni roles.
+    leida = leer_clave("EMPLEADO_PASSWORD")
+    if leida is None:
+        return
+    clave, sin_clave = leida
+    for nombre_usuario, correo in CUENTAS_EMPLEADO:
+        if UsuarioDAO.buscar_por_nombre(nombre_usuario) is not None:
+            print(f"Ya existe la cuenta: {nombre_usuario}")
+            continue
+        empleado = EmpleadoDAO.buscar_por_correo(correo)
+        if empleado is None:
+            print(f"Se omite la cuenta {nombre_usuario}: no existe el empleado {correo}")
+            continue
+        try:
+            crear_cuenta(empleado.id, nombre_usuario, clave, "empleado", sin_clave)
+        except (TypeError, ValueError) as error:
+            print(f"No fue posible crear la cuenta {nombre_usuario}: {error}")
+            continue
+        print(f"Cuenta de empleado creada: {nombre_usuario} ({empleado.nombre})")
+    if sin_clave:
+        print("Las cuentas de empleado nuevas no tienen contraseña (falta EMPLEADO_PASSWORD en el .env).")
+
+
 def cargar_cuenta_admin():
     if UsuarioDAO.buscar_por_nombre(ADMIN_USUARIO) is not None:
         return True
 
-    clave = os.getenv("ADMIN_PASSWORD")
-    sin_clave = not clave
-    if not sin_clave:
-        try:
-            Usuario.validar_clave(clave)
-        except (TypeError, ValueError) as error:
-            print(f"ADMIN_PASSWORD del archivo .env no es válida: {error}")
-            return False
+    leida = leer_clave("ADMIN_PASSWORD")
+    if leida is None:
+        return False
+    clave, sin_clave = leida
 
     correo = ADMIN_EMPLEADO[3]
     empleado = EmpleadoDAO.buscar_por_correo(correo)
@@ -132,11 +214,14 @@ def cargar_semilla():
     ids_departamentos = cargar_departamentos()
     creados = cargar_empleados(ids_departamentos)
     asignar_gerentes(ids_departamentos)
+    asignar_proyectos(cargar_proyectos())
     if cargar_cuenta_admin():
         print(f"Cuenta '{ADMIN_USUARIO}' lista para iniciar sesión")
+    cargar_cuentas_empleado()
     print(f"\nEmpleados nuevos en esta ejecución: {creados}")
     print(f"Total departamentos: {len(DepartamentoDAO.listar_todos())}")
     print(f"Total empleados: {len(EmpleadoDAO.listar_todos())}")
+    print(f"Total proyectos: {len(ProyectoDAO.listar_todos())}")
     print(f"Total usuarios: {len(UsuarioDAO.listar_todos())}")
 
 
